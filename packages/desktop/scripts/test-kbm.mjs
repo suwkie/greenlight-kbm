@@ -210,6 +210,9 @@ try {
     liveDriver._app = { getChannelProcessor: () => liveChannel }
     liveDriver._nativeChecked = true
     liveDriver._nativeSupported = true
+
+    // Injected clock keeps the throttle assertions deterministic.
+    liveDriver._clock = () => 0
     liveDriver._pushMouseFrame({ X: 7, Y: 0, WheelX: 0, WheelY: 0, Buttons: 0, Relative: 0 })
 
     check('live channel flushes the mouse frame immediately', liveChannel.sent.length === 1 && liveChannel._mouseFrames.length === 0, liveChannel.sent.length)
@@ -217,12 +220,21 @@ try {
 
     // A throttled flush leaves a gamepad heartbeat so the 16 ms interval cannot
     // drain and discard the pending mouse frame.
+    liveDriver._clock = () => 2
     liveDriver._pushMouseFrame({ X: 8, Y: 0, WheelX: 0, WheelY: 0, Buttons: 0, Relative: 0 })
     check('throttled mouse frame stays queued', liveChannel._mouseFrames.length === 1)
     check('throttled mouse frame gets a heartbeat', liveChannel._gamepadFrames.length === 1, liveChannel._gamepadFrames.length)
 
+    liveDriver._clock = () => 3
     liveDriver._pushMouseFrame({ X: 9, Y: 0, WheelX: 0, WheelY: 0, Buttons: 0, Relative: 0 })
-    check('heartbeat is rate limited', liveChannel._gamepadFrames.length === 1, liveChannel._gamepadFrames.length)
+    check('heartbeats do not stack', liveChannel._gamepadFrames.length === 1, liveChannel._gamepadFrames.length)
+
+    // Simulate the player interval draining the queue, then a throttled frame:
+    // the heartbeat must be replaced, not blocked by a time gate.
+    liveChannel._gamepadFrames.length = 0
+    liveDriver._clock = () => 4
+    liveDriver._pushMouseFrame({ X: 10, Y: 0, WheelX: 0, WheelY: 0, Buttons: 0, Relative: 0 })
+    check('a drained heartbeat is replaced immediately', liveChannel._gamepadFrames.length === 1, liveChannel._gamepadFrames.length)
 
     console.log('keyboard state')
     check('pressButton pulses a shadow button', (() => {

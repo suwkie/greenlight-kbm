@@ -104,8 +104,7 @@ node scripts/test-kbm.mjs
 It compiles `renderer/lib/kbm` with the local TypeScript and asserts the
 settings defaults, VK mapping, trigger field mapping, WASD handling, left stick
 normalisation, aim shaping, the 60 Hz gamepad frame cadence, the immediate
-mouse/keyboard flush and the rate-limited heartbeat that protects throttled
-frames.
+mouse/keyboard flush and the heartbeat that protects throttled frames.
 
 ## Testing checklist
 

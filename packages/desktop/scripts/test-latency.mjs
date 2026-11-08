@@ -193,6 +193,7 @@ try {
     check('flusher installs', installInputFlusher(wrapped) === true)
     check('flusher is idempotent', installInputFlusher(wrapped) === false)
     check('flusher sets the immediate flag', wrapped.__latencyImmediate === true)
+    check('install keeps the flag on', wrapped.__latencyImmediate === true)
     wrapped.queueGamepadState({ A: 1 })
     check('gamepad frame is sent immediately', wrapped.sent.length === 1, wrapped.sent.length)
     check('gamepad queue was drained', wrapped._gamepadFrames.length === 0)
@@ -201,6 +202,9 @@ try {
     const sentAfterUninstall = wrapped.sent.length
     wrapped.queueGamepadState({ A: 2 })
     check('uninstalled wrapper no longer flushes', wrapped.sent.length === sentAfterUninstall)
+    check('uninstall clears the immediate flag', wrapped.__latencyImmediate === false)
+    check('reinstall works after uninstall', installInputFlusher(wrapped) === true)
+    check('reinstall restores the immediate flag', wrapped.__latencyImmediate === true)
 
     const disabled = makeChannel()
     disabled.__latencyImmediate = false

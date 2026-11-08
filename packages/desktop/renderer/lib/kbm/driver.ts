@@ -118,7 +118,7 @@ export default class KbmInputDriver {
 
     private _statusListener: ((status: KbmStatus) => void) | undefined
     private _listenersAttached = false
-    private _lastHeartbeatAt = 0
+    private _clock: (() => number) | undefined
 
     constructor(settings: KbmRuntimeSettings) {
         this._settings = settings
@@ -591,20 +591,19 @@ export default class KbmInputDriver {
      * frames can never be spliced out and discarded.
      */
     private _flushInput(channel: any) {
-        const sent = flushInputNow(channel)
-        const now = performance.now()
+        const now = this._clock !== undefined ? this._clock() : undefined
+        const sent = flushInputNow(channel, false, now)
 
-        if (sent === true) {
+        if (sent === true || channel.__latencyFlusherInstalled !== true) {
             return
         }
 
-        if (channel.__latencyFlusherInstalled !== true || now - this._lastHeartbeatAt < 15) {
-            return
-        }
-
+        // The queue-empty check bounds the heartbeat to one per drain (the
+        // throttle is 6 ms, so at most ~166/s). No time gate: a heartbeat that
+        // was just drained must be replaceable immediately, otherwise a frame
+        // queued in the following milliseconds could still be discarded.
         if (Array.isArray(channel._gamepadFrames) && channel._gamepadFrames.length === 0) {
             channel._gamepadFrames.push(this._buildFrame())
-            this._lastHeartbeatAt = now
         }
     }
 

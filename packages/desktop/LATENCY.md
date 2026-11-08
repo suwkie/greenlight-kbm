@@ -32,9 +32,10 @@ throttled to 6 ms.
 - Rate: at most ~166 packets/s (vs ~60), about 10–30 kB/s extra — under 2 % of a
   20 Mbps stream.
 - The player's interval drains all queues and only sends when it finds gamepad,
-  metadata or pointer data. When a flush is throttled, the driver leaves one
-  gamepad heartbeat frame in the queue (at most every 15 ms) so a pending
-  mouse/keyboard frame can never be spliced out and discarded.
+  metadata or pointer data. When a flush is throttled and the gamepad queue is
+  empty, the driver leaves one heartbeat frame behind (bounded by the 6 ms
+  throttle), so a pending mouse/keyboard frame can never be spliced out and
+  discarded; a drained heartbeat is replaced immediately.
 - The "Send input immediately" checkbox sets `channel.__latencyImmediate`;
   turning it off restores the original 16 ms behaviour.
 
