@@ -587,8 +587,8 @@ export default class KbmInputDriver {
     /**
      * The player's 16 ms interval drains every queue and only sends when it
      * finds gamepad, metadata or pointer data. If a flush is throttled, leave a
-     * gamepad frame behind (at most every 15 ms) so queued mouse/keyboard
-     * frames can never be spliced out and discarded.
+     * gamepad frame behind so queued mouse/keyboard frames can never be
+     * spliced out and discarded.
      */
     private _flushInput(channel: any) {
         const now = this._clock !== undefined ? this._clock() : undefined
