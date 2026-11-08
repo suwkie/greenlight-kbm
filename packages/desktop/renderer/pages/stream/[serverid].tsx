@@ -76,6 +76,11 @@ function Stream() {
         }
 
         if(xPlayer !== undefined){
+            if (latencyRef.current !== null) {
+                latencyRef.current.stop()
+                latencyRef.current = null
+            }
+
             const latencySettings = resolveLatencySettings(currentSettings)
 
             // Must happen before bind(): it changes the ICE configuration.
@@ -85,10 +90,6 @@ function Stream() {
 
             document.getElementById('streamComponentHolder').innerHTML = '<div id="streamComponent" class="size_'+currentSettings.video_size+'"></div>'
             xPlayer.bind()
-
-            if (latencyRef.current !== null) {
-                latencyRef.current.stop()
-            }
 
             latencyRef.current = new LatencyController(xPlayer, latencySettings)
             latencyRef.current.markDirectLanApplied(directLanApplied)

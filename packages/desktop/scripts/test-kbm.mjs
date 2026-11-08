@@ -178,6 +178,52 @@ try {
     check('native mouse frame is queued', flushChannel._mouseFrames.length === 1)
     check('native mouse frame does not inject a gamepad frame', flushChannel._gamepadFrames.length === 0)
 
+    // A live channel: the frame is sent immediately instead of waiting 16 ms.
+    const liveChannel = {
+        _inputInterval: 1,
+        __latencyFlusherInstalled: true,
+        _frameMetadataQueue: [],
+        _gamepadFrames: [],
+        _pointerFrames: [],
+        _mouseFrames: [],
+        _keyboardFrames: [],
+        sent: [],
+        _createInputPacket(reportType, metadata, gamepad, pointer, mouse, keyboard) {
+            return { metadata, gamepad, pointer, mouse, keyboard }
+        },
+        send(packet) {
+            this.sent.push(packet)
+        },
+        getClient() {
+            return { getDataChannel: () => ({ readyState: 'open' }) }
+        },
+        getMetadataQueue(size = 30) { return this._frameMetadataQueue.splice(0, size - 1) },
+        getGamepadQueue(size = 30) { return this._gamepadFrames.splice(0, size - 1) },
+        getGamepadQueueLength() { return this._gamepadFrames.length },
+        getPointerQueue(size = 2) { return this._pointerFrames.splice(0, size - 1) },
+        getMouseQueue(size = 30) { return this._mouseFrames.splice(0, size - 1) },
+        getKeyboardQueue(size = 2) { return this._keyboardFrames.splice(0, size - 1) },
+        queueGamepadState(frame) { this._gamepadFrames.push(frame) },
+    }
+
+    const liveDriver = new KbmInputDriver(resolveKbmSettings({ input_kbm_mode: 'native' }))
+    liveDriver._app = { getChannelProcessor: () => liveChannel }
+    liveDriver._nativeChecked = true
+    liveDriver._nativeSupported = true
+    liveDriver._pushMouseFrame({ X: 7, Y: 0, WheelX: 0, WheelY: 0, Buttons: 0, Relative: 0 })
+
+    check('live channel flushes the mouse frame immediately', liveChannel.sent.length === 1 && liveChannel._mouseFrames.length === 0, liveChannel.sent.length)
+    check('flushed packet carries the mouse frame', liveChannel.sent[0].mouse.length === 1)
+
+    // A throttled flush leaves a gamepad heartbeat so the 16 ms interval cannot
+    // drain and discard the pending mouse frame.
+    liveDriver._pushMouseFrame({ X: 8, Y: 0, WheelX: 0, WheelY: 0, Buttons: 0, Relative: 0 })
+    check('throttled mouse frame stays queued', liveChannel._mouseFrames.length === 1)
+    check('throttled mouse frame gets a heartbeat', liveChannel._gamepadFrames.length === 1, liveChannel._gamepadFrames.length)
+
+    liveDriver._pushMouseFrame({ X: 9, Y: 0, WheelX: 0, WheelY: 0, Buttons: 0, Relative: 0 })
+    check('heartbeat is rate limited', liveChannel._gamepadFrames.length === 1, liveChannel._gamepadFrames.length)
+
     console.log('keyboard state')
     check('pressButton pulses a shadow button', (() => {
         const pressDriver = new KbmInputDriver(resolveKbmSettings({ input_kbm_mode: 'gamepad' }))

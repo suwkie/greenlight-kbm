@@ -118,6 +118,7 @@ export default class KbmInputDriver {
 
     private _statusListener: ((status: KbmStatus) => void) | undefined
     private _listenersAttached = false
+    private _lastHeartbeatAt = 0
 
     constructor(settings: KbmRuntimeSettings) {
         this._settings = settings
@@ -553,7 +554,7 @@ export default class KbmInputDriver {
             channel._mouseFrames.push(frame)
         }
 
-        flushInputNow(channel)
+        this._flushInput(channel)
     }
 
     private _pushKeyboardFrame(frame: KeyboardFrame) {
@@ -580,7 +581,31 @@ export default class KbmInputDriver {
             channel._keyboardFrames.push(frame)
         }
 
-        flushInputNow(channel)
+        this._flushInput(channel)
+    }
+
+    /**
+     * The player's 16 ms interval drains every queue and only sends when it
+     * finds gamepad, metadata or pointer data. If a flush is throttled, leave a
+     * gamepad frame behind (at most every 15 ms) so queued mouse/keyboard
+     * frames can never be spliced out and discarded.
+     */
+    private _flushInput(channel: any) {
+        const sent = flushInputNow(channel)
+        const now = performance.now()
+
+        if (sent === true) {
+            return
+        }
+
+        if (channel.__latencyFlusherInstalled !== true || now - this._lastHeartbeatAt < 15) {
+            return
+        }
+
+        if (Array.isArray(channel._gamepadFrames) && channel._gamepadFrames.length === 0) {
+            channel._gamepadFrames.push(this._buildFrame())
+            this._lastHeartbeatAt = now
+        }
     }
 
     private _trimKeyboardQueue(queue: Array<KeyboardFrame>) {

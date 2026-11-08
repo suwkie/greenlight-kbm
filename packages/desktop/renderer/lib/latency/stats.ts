@@ -72,7 +72,6 @@ export function isPrivateAddress(address: string): boolean {
         || (a === 172 && b >= 16 && b <= 31)
         || (a === 192 && b === 168)
         || (a === 169 && b === 254)
-        || (a === 100 && b >= 64 && b <= 127) // RFC 6598 CGNAT
         || a === 127
 }
 
@@ -249,7 +248,7 @@ export function describeLatency(snapshot: LatencySnapshot): Array<LatencyRow> {
     }
 
     if (snapshot.fps !== null) {
-        rows.push({ label: 'Stream FPS', value: Math.round(snapshot.fps).toString(), level: 'ok' })
+        rows.push({ label: 'Stream FPS', value: Math.round(snapshot.fps).toString(), level: snapshot.fps >= 30 ? 'ok' : 'warn' })
     }
 
     if (snapshot.remoteAddress !== '') {
@@ -266,7 +265,7 @@ export function describeLatency(snapshot: LatencySnapshot): Array<LatencyRow> {
 
     if (snapshot.freezeCount > 0 || snapshot.pauseCount > 0) {
         rows.push({
-            label: 'Stalls',
+            label: 'Stalls (total)',
             value: 'freezes ' + snapshot.freezeCount + ', pauses ' + snapshot.pauseCount,
             level: 'warn',
         })

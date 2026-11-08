@@ -67,6 +67,7 @@ function StreamComponent({
     let framesDroppedBaseline = 0
     let packetsDroppedBaseline = 0
     let frameCountDomUpdate = 0
+    let debugWasVisible = false
 
 
     function sliceData(data, start, end) {
@@ -201,7 +202,24 @@ function StreamComponent({
         }, 1000)
 
         webRtcStatsInterval = setInterval(() => {
-            if (xPlayer._webrtcClient !== undefined && isDebugPanelVisible()) {
+            const debugVisible = isDebugPanelVisible()
+
+            if (debugVisible === false) {
+                debugWasVisible = false
+                return
+            }
+
+            // Reset the graphs on reopen; otherwise the frozen baselines make
+            // the first sample look like a large loss spike.
+            if (debugWasVisible === false) {
+                debugWasVisible = true
+                framesDroppedBaseline = 0
+                packetsDroppedBaseline = 0
+                jitterData = [new Float32Array([performance_now_seconds()]), new Float32Array([0.0])]
+                droppedData = [new Float32Array([performance_now_seconds()]), new Float32Array([0.0]), new Float32Array([0.0])]
+            }
+
+            if (xPlayer._webrtcClient !== undefined) {
                 xPlayer._webrtcClient.getStats().then((stats) => {
                     let statsOutput = ''
 

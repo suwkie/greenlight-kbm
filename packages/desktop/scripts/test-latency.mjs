@@ -89,14 +89,13 @@ try {
     check('public IPv6 is not private', isPrivateAddress('2001:db8::1') === false)
     check('mDNS host candidate is local', isPrivateAddress('abcd-1234.local'))
     check('IPv4-mapped IPv6 is local', isPrivateAddress('::ffff:192.168.1.5'))
-    check('CGNAT is treated as local', isPrivateAddress('100.64.0.1'))
-    check('public 100/8 is not local', isPrivateAddress('100.128.0.1') === false)
+    check('carrier NAT is not treated as LAN', isPrivateAddress('100.64.0.1') === false)
 
     const rows = describeLatency(snapshot)
     check('rows include RTT', rows.some((row) => row.label === 'RTT' && row.value === '4 ms'))
     check('rows include LAN path', rows.some((row) => row.label === 'Path' && row.value.indexOf('LAN') === 0))
     check('rows include jitter buffer', rows.some((row) => row.label === 'Jitter buffer' && row.value === '8 ms'))
-    check('rows include stalls', rows.some((row) => row.label === 'Stalls'))
+    check('rows include stalls', rows.some((row) => row.label === 'Stalls (total)'))
 
     const empty = readLatencyStats(new Map())
     check('empty report is safe', empty.rttMs === null && empty.framesDecoded === 0)
@@ -165,7 +164,9 @@ try {
     check('throttle window is sane', MIN_FLUSH_INTERVAL_MS > 0 && MIN_FLUSH_INTERVAL_MS <= 16, MIN_FLUSH_INTERVAL_MS)
 
     const broken = makeChannel({
-        _createInputPacket() {
+        _createInputPacket(reportType, ...queues) {
+            // Simulate the real writer consuming the arrays before failing.
+            queues.forEach((queue) => Array.isArray(queue) && queue.shift())
             throw new Error('packet builder failed')
         },
     })
@@ -188,6 +189,7 @@ try {
     check('closed channel keeps its frames', closed._mouseFrames.length === 1)
 
     const wrapped = makeChannel()
+    const originalQueueGamepadState = wrapped.queueGamepadState
     check('flusher installs', installInputFlusher(wrapped) === true)
     check('flusher is idempotent', installInputFlusher(wrapped) === false)
     check('flusher sets the immediate flag', wrapped.__latencyImmediate === true)
@@ -195,7 +197,10 @@ try {
     check('gamepad frame is sent immediately', wrapped.sent.length === 1, wrapped.sent.length)
     check('gamepad queue was drained', wrapped._gamepadFrames.length === 0)
     check('flusher uninstalls', uninstallInputFlusher(wrapped) === true)
-    check('uninstall restores the original method', wrapped.__latencyFlusherInstalled === false)
+    check('uninstall restores the original method', wrapped.queueGamepadState === originalQueueGamepadState)
+    const sentAfterUninstall = wrapped.sent.length
+    wrapped.queueGamepadState({ A: 2 })
+    check('uninstalled wrapper no longer flushes', wrapped.sent.length === sentAfterUninstall)
 
     const disabled = makeChannel()
     disabled.__latencyImmediate = false

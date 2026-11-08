@@ -170,6 +170,9 @@ export function uninstallInputFlusher(channel: any): boolean {
         channel.queueGamepadState = channel.__latencyOriginalQueueGamepadState
     }
 
+    // "No wrapper" and "not immediate" are the same state from the driver's
+    // point of view, so keep the flag consistent.
+    channel.__latencyImmediate = false
     channel.__latencyFlusherInstalled = false
     delete channel.__latencyOriginalQueueGamepadState
     return true

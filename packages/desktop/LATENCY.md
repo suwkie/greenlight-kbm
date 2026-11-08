@@ -31,6 +31,10 @@ throttled to 6 ms.
   saving there is near zero.
 - Rate: at most ~166 packets/s (vs ~60), about 10–30 kB/s extra — under 2 % of a
   20 Mbps stream.
+- The player's interval drains all queues and only sends when it finds gamepad,
+  metadata or pointer data. When a flush is throttled, the driver leaves one
+  gamepad heartbeat frame in the queue (at most every 15 ms) so a pending
+  mouse/keyboard frame can never be spliced out and discarded.
 - The "Send input immediately" checkbox sets `channel.__latencyImmediate`;
   turning it off restores the original 16 ms behaviour.
 
@@ -98,6 +102,16 @@ If the GPU process crashes or video goes black after the VA-API flags, remove
 them (see rollback) or launch with your own `--enable-features` value, which
 takes precedence.
 
+## Console/display checklist
+
+- Xbox display settings: **120 Hz** for titles that support it. A 120 fps stream
+  halves the frame interval, worth roughly 8 ms on average — the largest
+  remaining client-visible number and it needs no code.
+- Wired Ethernet on both ends; if the latency panel's **Path** row says
+  `Remote`, fix the LAN/ICE path first.
+- Monitor at 120 Hz with game mode enabled, even for a 60 fps stream, to reduce
+  present latency.
+
 ## Expected total effect
 
 On a clean wired LAN: immediate input removes ~8 ms of client-side delay; the
@@ -117,7 +131,9 @@ npm test
 
 The latency suite covers stats parsing, candidate-pair selection, private/LAN
 detection, throttle timing, failure/restore, handshake ordering, the
-install/uninstall wrapper, jitter-target units and Direct LAN restore.
+install/uninstall wrapper, jitter-target units and Direct LAN restore. The KBM
+suite covers the immediate flush and the rate-limited heartbeat that protects
+throttled frames from being discarded by the player's interval.
 
 ## Rolling back
 
