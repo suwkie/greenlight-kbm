@@ -12,7 +12,7 @@ latency readout. Every change is committed separately and can be reverted.
 | Direct LAN ICE mode (skip STUN) for console streaming | same | Off |
 | Live latency panel (RTT, buffer, jitter, decode, path, stalls, loss) | `renderer/components/ui/streamcomponent.tsx` | Collected only while the debug panel is open |
 | Background throttling disabled | `main/helpers/create-window.ts`, `main/application.ts` | On |
-| VA-API hardware decode flags on Linux | `main/application.ts` | On (Linux only, opt-out by passing your own `--enable-features`) |
+| VA-API hardware decode flags on Linux | `main/application.ts` | Opt-in: `GREENLIGHT_VAAPI=1` |
 
 Settings live in **Settings → Streaming → Latency**.
 
@@ -72,7 +72,18 @@ If **Path** says `Remote` while the console is on your LAN, the media is going
 through the router's public address (hairpin NAT) or a relay. Fix the network
 before tuning anything else.
 
-## Verify hardware decode
+## Hardware decode (optional)
+
+The VA-API feature flags are opt-in because forcing acceleration past a broken
+driver can crash the GPU process:
+
+```bash
+GREENLIGHT_VAAPI=1 npx nextron
+```
+
+Do not set it if `chrome://gpu` already reports `Video Decode:
+Hardware accelerated` (Electron may already use VA-API through
+`--enable-accelerated-video-decode`).
 
 ```bash
 # In the running app: open the DevTools console and run

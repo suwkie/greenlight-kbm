@@ -62,11 +62,11 @@ export default class Application {
         ElectronApp.commandLine.appendSwitch('disable-background-timer-throttling')
         ElectronApp.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 
-        if (process.platform === 'linux' && ElectronApp.commandLine.getSwitchValue('enable-features') === '') {
-            // Use VA-API for hardware video decode (AMD/Intel). Software decode
-            // adds several milliseconds per frame and can drop frames. Do not
-            // force it past the driver blocklist; users with unsupported
-            // drivers can pass their own --enable-features flag.
+        if (process.platform === 'linux' && process.env.GREENLIGHT_VAAPI === '1' && ElectronApp.commandLine.getSwitchValue('enable-features') === '') {
+            // Opt-in: use VA-API for hardware video decode (AMD/Intel).
+            // Software decode adds several milliseconds per frame. It is off by
+            // default because forcing these features past a broken driver can
+            // crash the GPU process; see LATENCY.md for how to verify.
             ElectronApp.commandLine.appendSwitch('enable-features', 'VaapiVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL')
         }
 
