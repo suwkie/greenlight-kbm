@@ -132,6 +132,19 @@
         "setH264ProfileValueHigh": "High",
         "setH264ProfileValueMedium": "Medium",
         "setH264ProfileValueLow": "Low",
+
+        "latencyTitle": "Latency",
+        "latencyDescription": "Controls the receive-side delays between the console and this PC. Lower values feel more responsive but can stutter on a noisy network.",
+        "jitterBufferLabel": "Video jitter buffer",
+        "jitterBufferUltra": "Ultra low (0 ms)",
+        "jitterBufferLow": "Low (30 ms)",
+        "jitterBufferBalanced": "Balanced (100 ms)",
+        "jitterBufferDefault": "Browser default",
+        "immediateInputLabel": "Send input immediately",
+        "immediateInputDescription": "Flushes mouse, keyboard and gamepad packets instead of waiting for the 16 ms input batch. Requires keyboard & mouse mode for mouse/keyboard input.",
+        "directLanLabel": "Prefer direct LAN (disable STUN)",
+        "directLanDescription": "Only gather local ICE candidates. Use this when the PC and console are on the same network. Remote play over the internet will not connect with this enabled.",
+
         "forceRegionTitle": "Force region",
         "setRegionLabel": "Set region:",
         "setRegionValueDisabled": "Disabled",
@@ -293,7 +306,9 @@
       "kbmReleaseHint": "Esc releases the mouse",
       "kbmModeNative": "Native mouse & keyboard",
       "kbmModeGamepad": "Gamepad emulation",
-      "kbmNativeUnsupported": "This player build does not expose native mouse and keyboard frames. Gamepad emulation is used instead."
+      "kbmNativeUnsupported": "This player build does not expose native mouse and keyboard frames. Gamepad emulation is used instead.",
+      "latencyTitle": "Stream latency",
+      "latencyWaiting": "Waiting for stream stats..."
     },
 
     "updater": {

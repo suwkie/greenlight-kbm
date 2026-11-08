@@ -78,6 +78,9 @@ export default (windowName: string, options: BrowserWindowConstructorOptions): B
             contextIsolation: true,
             enableBlinkFeatures: '',
             sandbox: false,
+            // Streaming timers (input flush, stats, video callbacks) must not
+            // be throttled when the window is unfocused or partly occluded.
+            backgroundThrottling: false,
             preload: path.join(__dirname, 'preload.js'),
             ...options.webPreferences,
         },

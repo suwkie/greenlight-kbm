@@ -62,6 +62,27 @@ function SettingsStreaming() {
         })
     }
 
+    function setJitterBuffer(e){
+        setSettings({
+            ...settings,
+            latency_jitter_buffer_ms: parseInt(e.target.value),
+        })
+    }
+
+    function setImmediateInput(e){
+        setSettings({
+            ...settings,
+            latency_immediate_input: e.target.checked,
+        })
+    }
+
+    function setDirectLan(e){
+        setSettings({
+            ...settings,
+            latency_direct_lan: e.target.checked,
+        })
+    }
+
     function setForceRegionIp(e){
         setSettings({
             ...settings,
@@ -111,6 +132,37 @@ function SettingsStreaming() {
                         </select>
                     </p>
 
+                </Card>
+
+                <Card>
+                    <h1>{t('settings.streaming.latencyTitle')}</h1>
+                    <p>{t('settings.streaming.latencyDescription')}</p>
+
+                    <p>
+                        <label>{t('settings.streaming.jitterBufferLabel')}</label>
+                        <select value={ String(settings.latency_jitter_buffer_ms) } onChange={ setJitterBuffer }>
+                            <option value="0">{t('settings.streaming.jitterBufferUltra')}</option>
+                            <option value="30">{t('settings.streaming.jitterBufferLow')}</option>
+                            <option value="100">{t('settings.streaming.jitterBufferBalanced')}</option>
+                            <option value="-1">{t('settings.streaming.jitterBufferDefault')}</option>
+                        </select>
+                    </p>
+
+                    <p>
+                        <label>{t('settings.streaming.immediateInputLabel')}</label>
+                        <label style={{ minWidth: 0 }}>
+                            <input type='checkbox' checked={ settings.latency_immediate_input } onChange={ setImmediateInput } />
+                        </label><br />
+                        <small>{t('settings.streaming.immediateInputDescription')}</small>
+                    </p>
+
+                    <p>
+                        <label>{t('settings.streaming.directLanLabel')}</label>
+                        <label style={{ minWidth: 0 }}>
+                            <input type='checkbox' checked={ settings.latency_direct_lan } onChange={ setDirectLan } />
+                        </label><br />
+                        <small>{t('settings.streaming.directLanDescription')}</small>
+                    </p>
                 </Card>
 
                 <Card>

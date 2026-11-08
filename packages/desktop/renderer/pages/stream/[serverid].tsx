@@ -10,6 +10,7 @@ import KbmOverlay from '../../components/ui/kbmoverlay'
 import Ipc from '../../lib/ipc'
 import { createKbmRuntime, KbmRuntime } from '../../lib/kbm/runtime'
 import { KbmStatus } from '../../lib/kbm/types'
+import LatencyController, { applyDirectLan, resolveLatencySettings } from '../../lib/latency/controller'
 import { useTranslation } from 'react-i18next'
 
 function Stream() {
@@ -31,6 +32,7 @@ function Stream() {
     settingsRef.current = settings
 
     const kbmRuntimeRef = React.useRef<KbmRuntime | null>(null)
+    const latencyRef = React.useRef<LatencyController | null>(null)
     const [kbmRuntime, setKbmRuntime] = React.useState<KbmRuntime | null>(null)
     const [kbmStatus, setKbmStatus] = React.useState<KbmStatus>({
         supported: false,
@@ -52,6 +54,10 @@ function Stream() {
             if (kbmRuntimeRef.current !== null) {
                 kbmRuntimeRef.current.destroy()
             }
+
+            if (latencyRef.current !== null) {
+                latencyRef.current.stop()
+            }
         }
     }, [])
 
@@ -70,8 +76,20 @@ function Stream() {
         }
 
         if(xPlayer !== undefined){
+            const latencySettings = resolveLatencySettings(currentSettings)
+
+            // Must happen before bind(): it changes the ICE configuration.
+            applyDirectLan(xPlayer, latencySettings)
+
             document.getElementById('streamComponentHolder').innerHTML = '<div id="streamComponent" class="size_'+currentSettings.video_size+'"></div>'
             xPlayer.bind()
+
+            if (latencyRef.current !== null) {
+                latencyRef.current.stop()
+            }
+
+            latencyRef.current = new LatencyController(xPlayer, latencySettings)
+            latencyRef.current.start()
 
             // Set bitrates & video codec profiles
             if((streamType === 'cloud') ? currentSettings.xcloud_bitrate : currentSettings.xhome_bitrate > 0){

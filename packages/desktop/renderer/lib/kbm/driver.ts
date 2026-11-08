@@ -1,4 +1,5 @@
 import { virtualKeyFor } from './codes'
+import { flushInputNow } from '../latency/inputflush'
 import {
     GamepadFrame,
     KbmActiveMode,
@@ -550,20 +551,19 @@ export default class KbmInputDriver {
             return
         }
 
-        this._ensureFlushableQueue(channel)
-
+        // Queue first: the flush below may drain everything in one packet.
         if (typeof channel.queueMouseFrame === 'function') {
             channel.queueMouseFrame(frame)
-            return
-        }
-
-        if (Array.isArray(channel._mouseFrames)) {
+        } else if (Array.isArray(channel._mouseFrames)) {
             if (channel._mouseFrames.length >= MAX_FRAMES_PER_QUEUE) {
                 channel._mouseFrames.splice(0, channel._mouseFrames.length - MAX_FRAMES_PER_QUEUE + 1)
             }
 
             channel._mouseFrames.push(frame)
         }
+
+        this._ensureFlushableQueue(channel)
+        flushInputNow(channel)
     }
 
     private _pushKeyboardFrame(frame: KeyboardFrame) {
@@ -572,14 +572,10 @@ export default class KbmInputDriver {
             return
         }
 
-        this._ensureFlushableQueue(channel)
-
+        // Queue first: the flush below may drain everything in one packet.
         if (typeof channel.queueKeyboardFrame === 'function') {
             channel.queueKeyboardFrame(frame)
-            return
-        }
-
-        if (Array.isArray(channel._keyboardFrames)) {
+        } else if (Array.isArray(channel._keyboardFrames)) {
             if (channel._keyboardFrames.length >= MAX_FRAMES_PER_QUEUE) {
                 this._trimKeyboardQueue(channel._keyboardFrames)
 
@@ -593,6 +589,9 @@ export default class KbmInputDriver {
 
             channel._keyboardFrames.push(frame)
         }
+
+        this._ensureFlushableQueue(channel)
+        flushInputNow(channel)
     }
 
     private _trimKeyboardQueue(queue: Array<KeyboardFrame>) {

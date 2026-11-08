@@ -50,6 +50,11 @@ export const defaultSettings = {
     video_enabled: true,
     audio_enabled: true,
 
+    // Latency / streaming
+    latency_jitter_buffer_ms: 0,
+    latency_immediate_input: true,
+    latency_direct_lan: false,
+
     // WebUI
     webui_autostart: false,
     webui_port: 9003,

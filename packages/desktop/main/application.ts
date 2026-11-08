@@ -56,6 +56,17 @@ export default class Application {
         // ElectronApp.commandLine.appendSwitch('ignore-gpu-blocklist')
         // ElectronApp.commandLine.appendSwitch('no-sandbox')
         ElectronApp.commandLine.appendSwitch('enable-zero-copy')
+        // Keep timers and rendering running at full speed when the window is
+        // not focused; otherwise input and video callbacks drop to 1 Hz.
+        ElectronApp.commandLine.appendSwitch('disable-renderer-backgrounding')
+        ElectronApp.commandLine.appendSwitch('disable-background-timer-throttling')
+
+        if (process.platform === 'linux') {
+            // Use VA-API for hardware video decode (AMD/Intel). Software decode
+            // adds several milliseconds per frame and can drop frames.
+            ElectronApp.commandLine.appendSwitch('enable-features', 'VaapiVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiIgnoreDriverChecks')
+            ElectronApp.commandLine.appendSwitch('disable-features', 'UseChromeOSDirectVideoDecoder')
+        }
 
         this.readStartupFlags()
         this.loadApplicationDefaults()

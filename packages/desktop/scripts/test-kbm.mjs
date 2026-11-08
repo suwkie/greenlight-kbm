@@ -47,6 +47,7 @@ try {
         '--lib', 'dom,dom.iterable,esnext',
         '--skipLibCheck',
         '--esModuleInterop',
+        '--rootDir', path.join(desktopRoot, 'renderer/lib'),
         '--outDir', outDir,
         path.join(desktopRoot, 'renderer/lib/kbm/types.ts'),
         path.join(desktopRoot, 'renderer/lib/kbm/codes.ts'),
@@ -54,9 +55,9 @@ try {
         path.join(desktopRoot, 'renderer/lib/kbm/runtime.ts'),
     ], { stdio: 'inherit' })
 
-    const KbmInputDriver = require(path.join(outDir, 'driver.js')).default
-    const { resolveKbmSettings } = require(path.join(outDir, 'runtime.js'))
-    const { virtualKeyFor, keyLabelForCode } = require(path.join(outDir, 'codes.js'))
+    const KbmInputDriver = require(path.join(outDir, 'kbm', 'driver.js')).default
+    const { resolveKbmSettings } = require(path.join(outDir, 'kbm', 'runtime.js'))
+    const { virtualKeyFor, keyLabelForCode } = require(path.join(outDir, 'kbm', 'codes.js'))
 
     console.log('settings')
     const defaults = resolveKbmSettings({})

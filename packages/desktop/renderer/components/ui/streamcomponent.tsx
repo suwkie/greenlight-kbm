@@ -6,6 +6,7 @@ import Loader from './loader'
 import Card from './card'
 import uPlot from 'uplot'
 import Ipc from '../../lib/ipc'
+import { describeLatency, readLatencyStats, LatencySnapshot } from '../../lib/latency/stats'
 import { useTranslation } from 'react-i18next'
 
 interface StreamComponentProps {
@@ -32,6 +33,8 @@ function StreamComponent({
 
     const [micStatus, setMicStatus] = React.useState(false)
     const [waitingSeconds, setWaitingSeconds] = React.useState(0)
+    const [latency, setLatency] = React.useState<LatencySnapshot | null>(null)
+    const [jitterTarget, setJitterTarget] = React.useState<number | null>(null)
 
 
 
@@ -171,6 +174,27 @@ function StreamComponent({
             ],
         }, droppedData, document.getElementById('component_streamcomponent_debug_webrtc_dropped'))
 
+        const latencyInterval = setInterval(() => {
+            if (xPlayer._webrtcClient === undefined) {
+                return
+            }
+
+            xPlayer._webrtcClient.getStats().then((stats) => {
+                setLatency(readLatencyStats(stats))
+
+                const receivers = typeof xPlayer._webrtcClient.getReceivers === 'function' ? xPlayer._webrtcClient.getReceivers() : []
+                for (const receiver of receivers) {
+                    if (receiver.track !== null && receiver.track.kind === 'video') {
+                        const target = (receiver as any).jitterBufferTarget
+                        setJitterTarget(typeof target === 'number' ? target : null)
+                        break
+                    }
+                }
+            }).catch((error) => {
+                console.warn('[Latency] Failed to read stream stats:', error)
+            })
+        }, 1000)
+
         webRtcStatsInterval = setInterval(() => {
             if (xPlayer._webrtcClient !== undefined) {
                 xPlayer._webrtcClient.getStats().then((stats) => {
@@ -270,6 +294,7 @@ function StreamComponent({
             window.removeEventListener('mousedown', mouseEvent)
             window.removeEventListener('keypress', keyboardPressEvent)
             clearInterval(mouseInterval)
+            clearInterval(latencyInterval)
 
             // ipcRenderer.removeAllListeners('xcloud');
 
@@ -439,6 +464,24 @@ function StreamComponent({
 
                     <div id="component_streamcomponent_debug_webrtc_jitter"></div>
                     <div id="component_streamcomponent_debug_webrtc_dropped"></div>
+
+                    <div id="component_streamcomponent_latency">
+                        <p>{t("streamWindow.latencyTitle")}</p>
+                        <div className="latency-grid">
+                            { (latency !== null) ? describeLatency(latency).map((row) => (
+                                <div key={ row.label } className={ 'latency-row latency-' + row.level }>
+                                    <span className="latency-label">{ row.label }</span>
+                                    <span className="latency-value">{ row.value }</span>
+                                </div>
+                            )) : <div className="latency-row"><span className="latency-label">{t("streamWindow.latencyWaiting")}</span></div> }
+                            { (jitterTarget !== null && jitterTarget >= 0) ? (
+                                <div className="latency-row latency-ok">
+                                    <span className="latency-label">Jitter target</span>
+                                    <span className="latency-value">{ jitterTarget } ms</span>
+                                </div>
+                            ) : null }
+                        </div>
+                    </div>
 
                     <div id="component_streamcomponent_debug_text"></div>
                 </div>
