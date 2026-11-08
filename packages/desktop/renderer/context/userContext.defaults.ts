@@ -8,7 +8,17 @@ export const defaultSettings = {
     video_size: 'default',
     force_region_ip: '',
     input_touch: false,
+    // Legacy key. Kept for migration to input_kbm_mode; not shown in the UI.
     input_mousekeyboard: false,
+    input_kbm_mode: 'off',
+    input_kbm_sensitivity: 1,
+    input_kbm_invert_y: false,
+    input_kbm_deadzone: 0,
+    input_kbm_curve: 1,
+    input_kbm_left_click: 'rightTrigger',
+    input_kbm_right_click: 'leftTrigger',
+    input_kbm_middle_click: 'none',
+    input_kbm_toggle_key: 'F8',
     input_mousekeyboard_config: {
         ArrowLeft: 'DPadLeft',
         ArrowUp: 'DPadUp',

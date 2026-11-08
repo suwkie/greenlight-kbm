@@ -81,7 +81,41 @@
         "controllerDetectedTitle": "Controllers detected",
         "controllerDetectedDescription": "If you have a controller connected but it is not showing up, try to press a button on the controller to detect it.",
         "noControllerDetected": "No controller detected",
-        "keyboardMappingsTitle": "Keyboard mappings"
+        "keyboardMappingsTitle": "Keyboard mappings",
+        "keyboardMappingsDescription": "These bindings are used by gamepad emulation and by the built-in keyboard-to-gamepad option. W, A, S and D always drive the left thumbstick and cannot be bound.",
+
+        "kbmTitle": "Keyboard & Mouse",
+        "kbmDescription": "Play Xbox remote play with a keyboard and mouse. Native mode sends real mouse and keyboard reports to the console and requires a game that supports keyboard & mouse on Xbox. Gamepad emulation translates the mouse into the right thumbstick and keys into controller buttons, so it works with every game.",
+        "kbmModeLabel": "Mode",
+        "kbmModeOff": "Off",
+        "kbmModeNative": "Native (mouse & keyboard)",
+        "kbmModeGamepad": "Gamepad emulation",
+        "kbmModeOffDescription": "Keyboard and mouse input is not captured. Controller input works as usual.",
+        "kbmModeNativeDescription": "The console receives real mouse and keyboard reports. Click the video to capture the mouse, press Esc to release it. Only games with Xbox keyboard & mouse support will respond to it.",
+        "kbmModeGamepadDescription": "Mouse movement becomes right thumbstick movement and the key bindings below become controller buttons. Works in every game, but aiming is less precise than native input.",
+        "kbmSensitivityLabel": "Mouse sensitivity",
+        "kbmInvertYLabel": "Invert vertical axis",
+        "kbmToggleKeyLabel": "Switch mode hotkey",
+        "kbmToggleKeyDescription": "Press this key during a stream to switch between native and gamepad emulation. Click the field and press a key to change it.",
+        "kbmDeadzoneLabel": "Aim deadzone",
+        "kbmDeadzoneDescription": "Mouse movement below this threshold is ignored. Keep it at 0 for the most responsive aiming.",
+        "kbmCurveLabel": "Aim response curve",
+        "kbmCurveDescription": "Lower values make small movements faster, higher values make them more precise.",
+        "kbmLeftClickLabel": "Left click action",
+        "kbmRightClickLabel": "Right click action",
+        "kbmMiddleClickLabel": "Middle click action",
+        "kbmActionNone": "Do nothing",
+        "kbmActionRightTrigger": "Right trigger",
+        "kbmActionLeftTrigger": "Left trigger",
+        "kbmActionA": "A",
+        "kbmActionB": "B",
+        "kbmActionX": "X",
+        "kbmActionY": "Y",
+        "kbmActionLeftShoulder": "Left shoulder",
+        "kbmActionRightShoulder": "Right shoulder",
+        "kbmKeyboardToGamepadNote": "Keys are mapped below. W, A, S and D always drive the left thumbstick.",
+        "kbmResetButton": "Reset mouse & keyboard settings",
+        "kbmLegacyNote": "Keyboard & mouse mode replaces the built-in input driver, so this option is ignored while a keyboard & mouse mode is active."
       },
 
       "streaming": {
@@ -252,7 +286,14 @@
       "itsTakingALittleLonger": "It's taking a little longer.. Your stream may start soon.",
       "startingConnection": "Starting connection...",
       "connectingToConsole": "Connecting to console...",
-      "clientHasBeenDisconnected": "The client has been disconnected."
+      "clientHasBeenDisconnected": "The client has been disconnected.",
+      "kbmCaptureTitle": "Click the video to capture the mouse",
+      "kbmCaptureDescription": "The mouse is released and the gamebar is available while the mouse is not captured.",
+      "kbmSwitchHint": "{{key}} switches mode",
+      "kbmReleaseHint": "Esc releases the mouse",
+      "kbmModeNative": "Native mouse & keyboard",
+      "kbmModeGamepad": "Gamepad emulation",
+      "kbmNativeUnsupported": "This player build does not expose native mouse and keyboard frames. Gamepad emulation is used instead."
     },
 
     "updater": {

@@ -8,7 +8,15 @@ export default class IpcSettings extends IpcBase {
             // Check for changes which we need to take action on
             // const settings = this._application._store.get('settings', defaultSettings) as Object
             // const prevSettings = {...defaultSettings, ...settings}
-            const newSettings = {...defaultSettings, ...args}
+            const incoming = args as any
+            const newSettings = {...defaultSettings, ...incoming}
+
+            // Users upgrading from the old "Enable Mouse & Keyboard" checkbox
+            // (including the localStorage migration path) do not have
+            // input_kbm_mode yet. Keep their setting when saving.
+            if (incoming.input_kbm_mode === undefined && incoming.input_mousekeyboard === true) {
+                newSettings.input_kbm_mode = 'native'
+            }
 
             // Perform save
             this._application._store.set('settings', newSettings)
@@ -18,8 +26,16 @@ export default class IpcSettings extends IpcBase {
 
     getSettings(){
         return new Promise<typeof defaultSettings>((resolve) => {
-            const settings = this._application._store.get('settings', defaultSettings) as object
-            resolve({...defaultSettings, ...settings})
+            const stored = this._application._store.get('settings', {}) as any
+            const settings = {...defaultSettings, ...stored}
+
+            // Migrate the old "Enable Mouse & Keyboard" checkbox to the new
+            // keyboard & mouse mode setting.
+            if (stored.input_kbm_mode === undefined && stored.input_mousekeyboard === true) {
+                settings.input_kbm_mode = 'native'
+            }
+
+            resolve(settings)
         })
     }
 

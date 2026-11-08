@@ -112,5 +112,80 @@ div#component_streamcomponent_loader.hidden {
     display: none;
 }
 
+/* Keyboard & mouse capture overlay */
+div#component_kbm_overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 99;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+div#component_kbm_prompt {
+    backdrop-filter: blur(20px);
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 22px 28px;
+    max-width: 460px;
+    text-align: center;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+div#component_kbm_prompt_title {
+    font-size: 1.15em;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+div#component_kbm_prompt_description {
+    opacity: 0.85;
+    margin-bottom: 12px;
+}
+
+div#component_kbm_prompt_hints {
+    font-size: 0.85em;
+    opacity: 0.7;
+}
+
+div#component_kbm_prompt_warning {
+    margin-top: 10px;
+    font-size: 0.85em;
+    color: #ffb84d;
+}
+
+div#component_kbm_badge {
+    position: fixed;
+    top: 84px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    color: inherit;
+    font-size: 0.85em;
+    padding: 7px 14px;
+    opacity: 0.85;
+}
+
+.kbm-hint-separator {
+    margin: 0 8px;
+    opacity: 0.5;
+}
+
+.kbm-key {
+    display: inline-block;
+    min-width: 1.5em;
+    padding: 0 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.14);
+    font-family: monospace;
+}
+
 /* uPlot css */
 .uplot, .uplot *, .uplot *::before, .uplot *::after {box-sizing: border-box;}.uplot {font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";line-height: 1.5;width: min-content;}.u-title {text-align: center;font-size: 18px;font-weight: bold;}.u-wrap {position: relative;user-select: none;}.u-over, .u-under {position: absolute;}.u-under {overflow: hidden;}.uplot canvas {display: block;position: relative;width: 100%;height: 100%;}.u-axis {position: absolute;}.u-legend {font-size: 14px;margin: auto;text-align: center;}.u-inline {display: block;}.u-inline * {display: inline-block;}.u-inline tr {margin-right: 16px;}.u-legend th {font-weight: 600;}.u-legend th > * {vertical-align: middle;display: inline-block;}.u-legend .u-marker {width: 1em;height: 1em;margin-right: 4px;background-clip: padding-box !important;}.u-inline.u-live th::after {content: ":";vertical-align: middle;}.u-inline:not(.u-live) .u-value {display: none;}.u-series > * {padding: 4px;}.u-series th {cursor: pointer;}.u-legend .u-off > * {opacity: 0.3;}.u-select {background: rgba(0,0,0,0.07);position: absolute;pointer-events: none;}.u-cursor-x, .u-cursor-y {position: absolute;left: 0;top: 0;pointer-events: none;will-change: transform;z-index: 100;}.u-hz .u-cursor-x, .u-vt .u-cursor-y {height: 100%;border-right: 1px dashed #607D8B;}.u-hz .u-cursor-y, .u-vt .u-cursor-x {width: 100%;border-bottom: 1px dashed #607D8B;}.u-cursor-pt {position: absolute;top: 0;left: 0;border-radius: 50%;border: 0 solid;pointer-events: none;will-change: transform;z-index: 100;/*this has to be !important since we set inline "background" shorthand */background-clip: padding-box !important;}.u-axis.u-off, .u-select.u-off, .u-cursor-x.u-off, .u-cursor-y.u-off, .u-cursor-pt.u-off {display: none;}

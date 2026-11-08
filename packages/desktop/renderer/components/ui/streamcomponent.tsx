@@ -217,6 +217,13 @@ function StreamComponent({
 
         // Gamebar menu mouse events
         const mouseEvent = () => {
+            // While the keyboard & mouse runtime captured the pointer, mouse
+            // movement must not pop up the gamebar over the game.
+            if (document.pointerLockElement !== null) {
+                lastMovement = 0
+                return
+            }
+
             lastMovement = Date.now()
         }
         window.addEventListener('mousemove', mouseEvent)
@@ -225,6 +232,13 @@ function StreamComponent({
         const mouseInterval = setInterval(() => {
             const gamebarElement = document.getElementById('component_streamcomponent_gamebar')
             if (gamebarElement === null) {
+                return
+            }
+
+            if (document.pointerLockElement !== null) {
+                if (!gamebarElement.className.includes('hidden')) {
+                    gamebarElement.className = 'hidden'
+                }
                 return
             }
 

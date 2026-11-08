@@ -6,7 +6,10 @@ import xCloudPlayer from 'xbox-xcloud-player'
 import { useSettings } from '../../context/userContext'
 import StreamComponent from '../../components/ui/streamcomponent'
 import StreamPreload from '../../components/ui/streampreload'
+import KbmOverlay from '../../components/ui/kbmoverlay'
 import Ipc from '../../lib/ipc'
+import { createKbmRuntime, KbmRuntime } from '../../lib/kbm/runtime'
+import { KbmStatus } from '../../lib/kbm/types'
 import { useTranslation } from 'react-i18next'
 
 function Stream() {
@@ -20,8 +23,44 @@ function Stream() {
     const [xPlayer, setxPlayer] = React.useState(undefined)
     const [sessionId, setSessionId] = React.useState('')
     const [queueTime, setQueueTime] = React.useState(0)
+    const [streamConnected, setStreamConnected] = React.useState(false)
+
+    // The runtime is created lazily, right before the player is constructed, so
+    // it always sees the loaded settings instead of the initial defaults.
+    const settingsRef = React.useRef(settings)
+    settingsRef.current = settings
+
+    const kbmRuntimeRef = React.useRef<KbmRuntime | null>(null)
+    const [kbmRuntime, setKbmRuntime] = React.useState<KbmRuntime | null>(null)
+    const [kbmStatus, setKbmStatus] = React.useState<KbmStatus>({
+        supported: false,
+        locked: false,
+        mode: 'gamepad',
+        enabled: false,
+    })
 
     React.useEffect(() => {
+        if (kbmRuntime === null) {
+            return
+        }
+
+        return kbmRuntime.subscribe(setKbmStatus)
+    }, [kbmRuntime])
+
+    React.useEffect(() => {
+        return () => {
+            if (kbmRuntimeRef.current !== null) {
+                kbmRuntimeRef.current.destroy()
+            }
+        }
+    }, [])
+
+    React.useEffect(() => {
+        // Settings can resolve after the session starts. Read them through a
+        // ref so this effect can stay keyed on [xPlayer, sessionId] without
+        // capturing stale defaults.
+        const currentSettings = settingsRef.current
+
         // Detect stream type and title / server id
         let streamType = 'home'
         let serverId = router.query.serverid
@@ -31,20 +70,20 @@ function Stream() {
         }
 
         if(xPlayer !== undefined){
-            document.getElementById('streamComponentHolder').innerHTML = '<div id="streamComponent" class="size_'+settings.video_size+'"></div>'
+            document.getElementById('streamComponentHolder').innerHTML = '<div id="streamComponent" class="size_'+currentSettings.video_size+'"></div>'
             xPlayer.bind()
 
             // Set bitrates & video codec profiles
-            if((streamType === 'cloud') ? settings.xcloud_bitrate : settings.xhome_bitrate > 0){
-                xPlayer.setVideoBitrate((streamType === 'cloud') ? settings.xcloud_bitrate : settings.xhome_bitrate)
+            if((streamType === 'cloud') ? currentSettings.xcloud_bitrate : currentSettings.xhome_bitrate > 0){
+                xPlayer.setVideoBitrate((streamType === 'cloud') ? currentSettings.xcloud_bitrate : currentSettings.xhome_bitrate)
             }
 
-            if(settings.video_profiles.length > 0){
-                xPlayer.setCodecPreferences('video/H264', { profiles: settings.video_profiles || [] }) // 4d = high, 42e = mid, 420 = low
+            if(currentSettings.video_profiles.length > 0){
+                xPlayer.setCodecPreferences('video/H264', { profiles: currentSettings.video_profiles || [] }) // 4d = high, 42e = mid, 420 = low
             }
 
             // Stream is ready so we start the player
-            xPlayer.setControllerRumble(settings.controller_vibration)
+            xPlayer.setControllerRumble(currentSettings.controller_vibration)
             xPlayer.setSdpHandler((client, offer) => {
                 Ipc.send('streaming', 'sendChatSdp', {
                     sessionId: sessionId,
@@ -99,6 +138,12 @@ function Stream() {
             xPlayer.getEventBus().on('connectionstate', (event) => {
                 console.log('connectionstate changed:', event)
 
+                if(event.state === 'connected'){
+                    setStreamConnected(true)
+                } else if(event.state === 'closed'){
+                    setStreamConnected(false)
+                }
+
                 const connStatus = document.getElementById('component_streamcomponent_connectionstatus')
                 if(connStatus !== null){
                     if(event.state === 'connected'){
@@ -107,15 +152,18 @@ function Stream() {
 
                         // Set audio / Video settings
                         // @TODO: Implement api's in xbox-xcloud-player
-                        if(settings.audio_enabled === false){
+                        if(currentSettings.audio_enabled === false){
                             xPlayer._audioComponent._audioRender.muted = true
                         }
 
-                        if(settings.video_enabled === false){
+                        if(currentSettings.video_enabled === false){
                             xPlayer._videoComponent._videoRender.style.opacity = 0
                         }
 
                         // Start keepalive loop
+                        if (keepaliveInterval) {
+                            clearInterval(keepaliveInterval)
+                        }
                         keepaliveInterval = setInterval(() => {
                             Ipc.send('streaming', 'sendKeepalive', {
                                 sessionId: sessionId,
@@ -170,15 +218,25 @@ function Stream() {
                             // Console is ready
                             clearInterval(streamStateInterval)
 
+                            // Read the settings at construction time; they may
+                            // have resolved after this effect was set up.
+                            const startSettings = settingsRef.current
+
                             // Start xPlayer interface
+                            let kbm = kbmRuntimeRef.current
+                            if (kbm === null) {
+                                kbm = createKbmRuntime(startSettings)
+                                kbmRuntimeRef.current = kbm
+                                setKbmRuntime(kbm)
+                            }
+
                             setxPlayer(new xCloudPlayer('streamComponent', {
                                 ui_systemui: [],
-                                input_touch: settings.input_touch || false,
-                                input_mousekeyboard: settings.input_mousekeyboard || false,
-                                input_legacykeyboard: (settings.input_newgamepad) ? false : true,
-                                input_mousekeyboard_config: settings.input_mousekeyboard_config !== undefined ? {
-                                    _keymapping: settings.input_mousekeyboard_config,
+                                input_touch: startSettings.input_touch || false,
+                                input_mousekeyboard_config: startSettings.input_mousekeyboard_config !== undefined ? {
+                                    _keymapping: startSettings.input_mousekeyboard_config,
                                 } : undefined as any,
+                                ...kbm.playerConfig,
                             }))
                             break
 
@@ -229,7 +287,7 @@ function Stream() {
                 clearInterval(streamStateInterval)
             }
         }
-    })
+    }, [xPlayer, sessionId])
 
     function gamepadSend(button){
         console.log('Pressed button:', button)
@@ -254,11 +312,17 @@ function Stream() {
                 <title>Greenlight - {t('streamWindow.pageTitle')} {router.query.serverid}</title>
             </Head>
 
-            { (xPlayer !== undefined) ? <StreamComponent onDisconnect={ () => {
-                onDisconnect()
-            }} onMenu={ () => {
-                gamepadSend('nexus')
-            } } xPlayer={ xPlayer }></StreamComponent> : (queueTime > 0) ?<StreamPreload onDisconnect={ () => {
+            { (xPlayer !== undefined) ? <React.Fragment>
+                <StreamComponent onDisconnect={ () => {
+                    onDisconnect()
+                }} onMenu={ () => {
+                    gamepadSend('nexus')
+                } } xPlayer={ xPlayer }></StreamComponent>
+                { (streamConnected && kbmRuntime !== null) ? <KbmOverlay
+                    status={ kbmStatus }
+                    toggleKey={ kbmRuntime.settings.toggleKey }
+                ></KbmOverlay> : null }
+            </React.Fragment> : (queueTime > 0) ?<StreamPreload onDisconnect={ () => {
                 onDisconnect()
             }} waitingTime={ queueTime }></StreamPreload> : <StreamPreload onDisconnect={ () => {
                 onDisconnect()

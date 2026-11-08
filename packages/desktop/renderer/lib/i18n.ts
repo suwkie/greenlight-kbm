@@ -24,7 +24,7 @@ export function initI18nWithLanguage(settings) {
   i18n.use(initReactI18next).init({
     resources,
     lng: initialLanguage,
-    fallbackLng: initialLanguage,
+    fallbackLng: ['en-US'],
     interpolation: {
       escapeValue: false,
     },
