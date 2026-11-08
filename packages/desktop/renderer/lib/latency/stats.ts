@@ -11,6 +11,8 @@ export interface LatencySnapshot {
     fps: number | null;
     framesDecoded: number;
     framesDropped: number;
+    freezeCount: number;
+    pauseCount: number;
     packetsLost: number;
     nackCount: number;
     pliCount: number;
@@ -42,8 +44,19 @@ export function isPrivateAddress(address: string): boolean {
         return false
     }
 
+    // mDNS host candidates look like "abcd-1234.local".
+    if (address.endsWith('.local')) {
+        return true
+    }
+
     if (address.indexOf(':') >= 0) {
         const lower = address.toLowerCase()
+
+        // IPv4-mapped IPv6 addresses carry an IPv4 address in the last group.
+        if (lower.startsWith('::ffff:')) {
+            return isPrivateAddress(lower.substring(7))
+        }
+
         return lower === '::1' || lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')
     }
 
@@ -59,6 +72,7 @@ export function isPrivateAddress(address: string): boolean {
         || (a === 172 && b >= 16 && b <= 31)
         || (a === 192 && b === 168)
         || (a === 169 && b === 254)
+        || (a === 100 && b >= 64 && b <= 127) // RFC 6598 CGNAT
         || a === 127
 }
 
@@ -102,6 +116,8 @@ export function readLatencyStats(reports: any): LatencySnapshot {
         fps: null,
         framesDecoded: 0,
         framesDropped: 0,
+        freezeCount: 0,
+        pauseCount: 0,
         packetsLost: 0,
         nackCount: 0,
         pliCount: 0,
@@ -118,18 +134,24 @@ export function readLatencyStats(reports: any): LatencySnapshot {
 
     let selectedPair: any = undefined
     let fallbackPair: any = undefined
+    let transport: any = undefined
     let inbound: any = undefined
+    const candidatePairs: { [id: string]: any } = {}
     const remoteCandidates: { [id: string]: any } = {}
     const localCandidates: { [id: string]: any } = {}
     const codecs: { [id: string]: any } = {}
 
     reports.forEach((report: any) => {
         if (report.type === 'candidate-pair') {
+            candidatePairs[report.id] = report
+
             if (report.nominated === true || report.selected === true) {
                 selectedPair = report
             } else if (fallbackPair === undefined || (report.packetsReceived || 0) > (fallbackPair.packetsReceived || 0)) {
                 fallbackPair = report
             }
+        } else if (report.type === 'transport') {
+            transport = report
         } else if (report.type === 'remote-candidate') {
             remoteCandidates[report.id] = report
         } else if (report.type === 'local-candidate') {
@@ -141,14 +163,16 @@ export function readLatencyStats(reports: any): LatencySnapshot {
         }
     })
 
-    const pair = selectedPair !== undefined ? selectedPair : fallbackPair
+    const pair = transport !== undefined && transport.selectedCandidatePairId !== undefined
+        ? (candidatePairs[transport.selectedCandidatePairId] || selectedPair || fallbackPair)
+        : (selectedPair !== undefined ? selectedPair : fallbackPair)
 
     if (pair !== undefined) {
         snapshot.rttMs = secondsToMs(pair.currentRoundTripTime)
 
         const remote = remoteCandidates[pair.remoteCandidateId]
         if (remote !== undefined) {
-            snapshot.remoteAddress = remote.address || ''
+            snapshot.remoteAddress = remote.address || remote.ip || ''
             snapshot.remoteCandidateType = remote.candidateType || ''
             snapshot.remoteIsLocal = snapshot.remoteAddress !== '' ? isPrivateAddress(snapshot.remoteAddress) : null
         }
@@ -167,6 +191,8 @@ export function readLatencyStats(reports: any): LatencySnapshot {
         snapshot.fps = Number.isFinite(Number(inbound.framesPerSecond)) ? Number(inbound.framesPerSecond) : null
         snapshot.framesDecoded = Number(inbound.framesDecoded) || 0
         snapshot.framesDropped = Number(inbound.framesDropped) || 0
+        snapshot.freezeCount = Number(inbound.freezeCount) || 0
+        snapshot.pauseCount = Number(inbound.pauseCount) || 0
         snapshot.packetsLost = Number(inbound.packetsLost) || 0
         snapshot.nackCount = Number(inbound.nackCount) || 0
         snapshot.pliCount = Number(inbound.pliCount) || 0
@@ -223,7 +249,7 @@ export function describeLatency(snapshot: LatencySnapshot): Array<LatencyRow> {
     }
 
     if (snapshot.fps !== null) {
-        rows.push({ label: 'Stream FPS', value: Math.round(snapshot.fps).toString(), level: snapshot.fps >= 58 ? 'ok' : 'warn' })
+        rows.push({ label: 'Stream FPS', value: Math.round(snapshot.fps).toString(), level: 'ok' })
     }
 
     if (snapshot.remoteAddress !== '') {
@@ -236,6 +262,14 @@ export function describeLatency(snapshot: LatencySnapshot): Array<LatencyRow> {
 
     if (snapshot.codec !== '') {
         rows.push({ label: 'Codec', value: snapshot.codec, level: 'ok' })
+    }
+
+    if (snapshot.freezeCount > 0 || snapshot.pauseCount > 0) {
+        rows.push({
+            label: 'Stalls',
+            value: 'freezes ' + snapshot.freezeCount + ', pauses ' + snapshot.pauseCount,
+            level: 'warn',
+        })
     }
 
     if (snapshot.framesDropped > 0 || snapshot.packetsLost > 0 || snapshot.nackCount > 0) {

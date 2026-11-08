@@ -79,7 +79,9 @@ function Stream() {
             const latencySettings = resolveLatencySettings(currentSettings)
 
             // Must happen before bind(): it changes the ICE configuration.
-            applyDirectLan(xPlayer, latencySettings)
+            // Host-only candidates cannot reach an xCloud VM, so keep STUN for
+            // cloud streams and use direct LAN for console streaming only.
+            const directLanApplied = streamType === 'home' ? applyDirectLan(xPlayer, latencySettings) : false
 
             document.getElementById('streamComponentHolder').innerHTML = '<div id="streamComponent" class="size_'+currentSettings.video_size+'"></div>'
             xPlayer.bind()
@@ -89,6 +91,7 @@ function Stream() {
             }
 
             latencyRef.current = new LatencyController(xPlayer, latencySettings)
+            latencyRef.current.markDirectLanApplied(directLanApplied)
             latencyRef.current.start()
 
             // Set bitrates & video codec profiles

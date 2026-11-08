@@ -1,7 +1,11 @@
-import { installInputFlusher } from './inputflush'
+import { installInputFlusher, uninstallInputFlusher } from './inputflush'
 
 export interface LatencySettings {
-    /** Target video jitter buffer in milliseconds. Negative = leave the browser default. */
+    /**
+     * Extra receive buffer floor for video, in milliseconds. `-1` leaves the
+     * browser default (no API call). Values above 0 can only *add* latency;
+     * Chromium's jitter estimator already chooses the minimum safe buffer.
+     */
     jitterBufferMs: number;
     /** Send input frames immediately instead of waiting for the player's 16 ms batch. */
     immediateInput: boolean;
@@ -13,11 +17,13 @@ export function resolveLatencySettings(settings: any): LatencySettings {
     const jitter = Number(settings?.latency_jitter_buffer_ms)
 
     return {
-        jitterBufferMs: Number.isFinite(jitter) ? jitter : 0,
+        jitterBufferMs: Number.isFinite(jitter) ? jitter : -1,
         immediateInput: settings?.latency_immediate_input !== false,
         directLan: settings?.latency_direct_lan === true,
     }
 }
+
+const appliedJitterTargets = new WeakMap<object, number>()
 
 /**
  * The player hardcodes Google STUN servers. For a stream between two devices on
@@ -35,23 +41,37 @@ export function applyDirectLan(player: any, settings: LatencySettings): boolean 
         return false
     }
 
+    // Keep the original so stop()/reconnect can go back to using STUN.
+    if (player.__latencyOriginalWebrtcConfig === undefined) {
+        player.__latencyOriginalWebrtcConfig = config
+    }
+
     player._webrtcConfiguration = {
         ...config,
         iceServers: [],
-        iceTransportPolicy: 'all',
     }
 
     console.log('[Latency] Direct LAN mode: STUN disabled')
     return true
 }
 
+export function restoreDirectLan(player: any): boolean {
+    if (player === undefined || player === null || player.__latencyOriginalWebrtcConfig === undefined) {
+        return false
+    }
+
+    player._webrtcConfiguration = player.__latencyOriginalWebrtcConfig
+    delete player.__latencyOriginalWebrtcConfig
+    return true
+}
+
 /**
- * Sets the receiver's playout/jitter buffer target. Chromium exposes
- * `jitterBufferTarget` in milliseconds; older builds only have
- * `playoutDelayHint` in seconds.
+ * Chromium exposes `jitterBufferTarget` as the *minimum* playout delay in
+ * milliseconds. It cannot go below the jitter estimator's floor; a value above
+ * 0 deliberately adds safety margin. `-1` clears an earlier target.
  */
 export function applyJitterBufferTarget(peerConnection: any, targetMs: number): number {
-    if (peerConnection === undefined || peerConnection === null || targetMs < 0) {
+    if (peerConnection === undefined || peerConnection === null) {
         return 0
     }
 
@@ -59,6 +79,7 @@ export function applyJitterBufferTarget(peerConnection: any, targetMs: number): 
         return 0
     }
 
+    const desired: number | null = targetMs < 0 ? null : targetMs
     let applied = 0
 
     for (const receiver of peerConnection.getReceivers()) {
@@ -66,12 +87,22 @@ export function applyJitterBufferTarget(peerConnection: any, targetMs: number): 
             continue
         }
 
+        const previous = appliedJitterTargets.get(receiver)
+
+        if (previous === desired || (previous === undefined && desired === null)) {
+            continue
+        }
+
         try {
             if ('jitterBufferTarget' in receiver) {
-                receiver.jitterBufferTarget = targetMs
+                // null means "no application preference" per the WebRTC spec.
+                receiver.jitterBufferTarget = desired
+                appliedJitterTargets.set(receiver, desired)
                 applied++
-            } else if ('playoutDelayHint' in receiver) {
-                receiver.playoutDelayHint = targetMs / 1000
+            } else if (desired !== null && 'playoutDelayHint' in receiver) {
+                // Older Chromium: seconds, no way to clear it again.
+                receiver.playoutDelayHint = desired / 1000
+                appliedJitterTargets.set(receiver, desired)
                 applied++
             }
         } catch (error) {
@@ -92,7 +123,7 @@ export default class LatencyController {
     private _settings: LatencySettings
     private _timer: any = undefined
     private _loggedApplied = false
-    private _loggedUnsupported = false
+    private _directLanApplied = false
 
     constructor(player: any, settings: LatencySettings) {
         this._player = player
@@ -116,6 +147,13 @@ export default class LatencyController {
             clearInterval(this._timer)
             this._timer = undefined
         }
+
+        uninstallInputFlusher(this._getInputChannel())
+
+        if (this._directLanApplied === true) {
+            restoreDirectLan(this._player)
+            this._directLanApplied = false
+        }
     }
 
     getSettings(): LatencySettings {
@@ -127,22 +165,28 @@ export default class LatencyController {
         this._apply()
     }
 
+    markDirectLanApplied(applied: boolean) {
+        this._directLanApplied = applied
+    }
+
     private _installFlusher() {
-        if (this._settings.immediateInput !== true) {
+        const input = this._getInputChannel()
+
+        if (input === undefined) {
             return
         }
 
-        const input = this._getInputChannel()
-        if (input !== undefined) {
+        if (this._settings.immediateInput === true) {
             installInputFlusher(input)
+        } else {
+            // The KBM driver calls flushInputNow directly; the flag makes the
+            // setting authoritative in one place.
+            input.__latencyImmediate = false
+            uninstallInputFlusher(input)
         }
     }
 
     private _apply() {
-        if (this._settings.jitterBufferMs < 0) {
-            return
-        }
-
         const peerConnection = this._player !== undefined ? this._player._webrtcClient : undefined
         if (peerConnection === undefined || peerConnection === null) {
             return
@@ -152,13 +196,7 @@ export default class LatencyController {
 
         if (applied > 0 && this._loggedApplied === false) {
             this._loggedApplied = true
-            console.log('[Latency] Video jitter buffer target set to ' + this._settings.jitterBufferMs + ' ms')
-        } else if (applied === 0 && this._loggedUnsupported === false) {
-            const receivers = typeof peerConnection.getReceivers === 'function' ? peerConnection.getReceivers() : []
-            if (receivers.length > 0) {
-                this._loggedUnsupported = true
-                console.warn('[Latency] This Chromium build does not expose a video jitter buffer target')
-            }
+            console.log('[Latency] Video jitter buffer floor set to ' + this._settings.jitterBufferMs + ' ms')
         }
     }
 

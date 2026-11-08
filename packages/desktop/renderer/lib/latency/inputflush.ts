@@ -27,8 +27,48 @@ export function canSendInput(channel: any): boolean {
     return dataChannel.readyState === 'open'
 }
 
-export function flushInputNow(channel: any, force = false): boolean {
+/**
+ * Restores frames that were drained from the channel when packet creation
+ * failed. Key-ups and button releases matter most: dropping them leaves the
+ * console with a stuck key/button.
+ */
+function restoreQueues(channel: any, queues: { [name: string]: Array<any> }) {
+    const targets: { [name: string]: string } = {
+        metadata: '_frameMetadataQueue',
+        gamepad: '_gamepadFrames',
+        pointer: '_pointerFrames',
+        mouse: '_mouseFrames',
+        keyboard: '_keyboardFrames',
+    }
+
+    for (const name in queues) {
+        const queue = queues[name]
+
+        if (queue.length === 0) {
+            continue
+        }
+
+        const target = channel[targets[name]]
+
+        if (Array.isArray(target) && typeof target.unshift === 'function') {
+            target.unshift(...queue)
+        }
+    }
+}
+
+export function flushInputNow(channel: any, force = false, nowMs?: number): boolean {
     if (channel === undefined || channel === null || typeof channel._createInputPacket !== 'function') {
+        return false
+    }
+
+    // The controller sets this when the user disables immediate input.
+    if (channel.__latencyImmediate === false) {
+        return false
+    }
+
+    // The channel sends its ClientMetadata handshake (sequence 0) from the
+    // interval. Do not race it with a sequence-1 packet.
+    if (channel._inputInterval === undefined) {
         return false
     }
 
@@ -36,7 +76,7 @@ export function flushInputNow(channel: any, force = false): boolean {
         return false
     }
 
-    const now = performance.now()
+    const now = nowMs !== undefined ? nowMs : performance.now()
     const last = lastFlushAt.get(channel)
 
     if (force !== true && last !== undefined && now - last < MIN_FLUSH_INTERVAL_MS) {
@@ -59,12 +99,31 @@ export function flushInputNow(channel: any, force = false): boolean {
         return false
     }
 
+    const drained = {
+        metadata: metadataQueue,
+        gamepad: gamepadQueue,
+        pointer: pointerQueue,
+        mouse: mouseQueue,
+        keyboard: keyboardQueue,
+    }
+
     try {
-        const packet = channel._createInputPacket(0, metadataQueue, gamepadQueue, pointerQueue, mouseQueue, keyboardQueue)
+        // Packet writers shift() the arrays they are given. Passing copies
+        // keeps the originals intact so they can be restored on failure.
+        const packet = channel._createInputPacket(
+            0,
+            [...metadataQueue],
+            [...gamepadQueue],
+            [...pointerQueue],
+            [...mouseQueue],
+            [...keyboardQueue],
+        )
+
         channel.send(packet)
         lastFlushAt.set(channel, now)
         return true
     } catch (error) {
+        restoreQueues(channel, drained)
         console.warn('[Latency] Failed to flush input packet:', error)
         return false
     }
@@ -89,6 +148,7 @@ export function installInputFlusher(channel: any): boolean {
     }
 
     const original = channel.queueGamepadState.bind(channel)
+    channel.__latencyOriginalQueueGamepadState = channel.queueGamepadState
 
     channel.queueGamepadState = (frame: any) => {
         const result = original(frame)
@@ -96,6 +156,21 @@ export function installInputFlusher(channel: any): boolean {
         return result
     }
 
+    channel.__latencyImmediate = true
     channel.__latencyFlusherInstalled = true
+    return true
+}
+
+export function uninstallInputFlusher(channel: any): boolean {
+    if (channel === undefined || channel === null || channel.__latencyFlusherInstalled !== true) {
+        return false
+    }
+
+    if (typeof channel.__latencyOriginalQueueGamepadState === 'function') {
+        channel.queueGamepadState = channel.__latencyOriginalQueueGamepadState
+    }
+
+    channel.__latencyFlusherInstalled = false
+    delete channel.__latencyOriginalQueueGamepadState
     return true
 }

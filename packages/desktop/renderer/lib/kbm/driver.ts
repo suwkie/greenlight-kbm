@@ -536,15 +536,6 @@ export default class KbmInputDriver {
         }
     }
 
-    private _ensureFlushableQueue(channel: any) {
-        // The channel drains all queues and only sends when it found gamepad,
-        // metadata or pointer data. Make sure a mouse/keyboard frame can never
-        // be spliced out and then discarded.
-        if (typeof channel.getGamepadQueueLength === 'function' && channel.getGamepadQueueLength() === 0) {
-            this._queueFrame()
-        }
-    }
-
     private _pushMouseFrame(frame: MouseFrame) {
         const channel = this._getInputChannel()
         if (channel === undefined) {
@@ -562,7 +553,6 @@ export default class KbmInputDriver {
             channel._mouseFrames.push(frame)
         }
 
-        this._ensureFlushableQueue(channel)
         flushInputNow(channel)
     }
 
@@ -590,7 +580,6 @@ export default class KbmInputDriver {
             channel._keyboardFrames.push(frame)
         }
 
-        this._ensureFlushableQueue(channel)
         flushInputNow(channel)
     }
 

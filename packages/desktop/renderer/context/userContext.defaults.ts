@@ -51,7 +51,7 @@ export const defaultSettings = {
     audio_enabled: true,
 
     // Latency / streaming
-    latency_jitter_buffer_ms: 0,
+    latency_jitter_buffer_ms: -1,
     latency_immediate_input: true,
     latency_direct_lan: false,
 

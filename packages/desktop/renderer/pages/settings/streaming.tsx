@@ -141,10 +141,10 @@ function SettingsStreaming() {
                     <p>
                         <label>{t('settings.streaming.jitterBufferLabel')}</label>
                         <select value={ String(settings.latency_jitter_buffer_ms) } onChange={ setJitterBuffer }>
+                            <option value="-1">{t('settings.streaming.jitterBufferDefault')}</option>
                             <option value="0">{t('settings.streaming.jitterBufferUltra')}</option>
                             <option value="30">{t('settings.streaming.jitterBufferLow')}</option>
                             <option value="100">{t('settings.streaming.jitterBufferBalanced')}</option>
-                            <option value="-1">{t('settings.streaming.jitterBufferDefault')}</option>
                         </select>
                     </p>
 

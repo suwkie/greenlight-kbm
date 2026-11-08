@@ -9,6 +9,11 @@ import Ipc from '../../lib/ipc'
 import { describeLatency, readLatencyStats, LatencySnapshot } from '../../lib/latency/stats'
 import { useTranslation } from 'react-i18next'
 
+function isDebugPanelVisible(): boolean {
+    const element = document.getElementById('component_streamcomponent_debug')
+    return element !== null && element.className.indexOf('hidden') === -1
+}
+
 interface StreamComponentProps {
     onDisconnect?: () => void;
     onMenu?: () => void;
@@ -175,7 +180,7 @@ function StreamComponent({
         }, droppedData, document.getElementById('component_streamcomponent_debug_webrtc_dropped'))
 
         const latencyInterval = setInterval(() => {
-            if (xPlayer._webrtcClient === undefined) {
+            if (xPlayer._webrtcClient === undefined || isDebugPanelVisible() === false) {
                 return
             }
 
@@ -196,7 +201,7 @@ function StreamComponent({
         }, 1000)
 
         webRtcStatsInterval = setInterval(() => {
-            if (xPlayer._webrtcClient !== undefined) {
+            if (xPlayer._webrtcClient !== undefined && isDebugPanelVisible()) {
                 xPlayer._webrtcClient.getStats().then((stats) => {
                     let statsOutput = ''
 

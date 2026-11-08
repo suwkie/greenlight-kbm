@@ -1,35 +1,61 @@
 # Low-latency streaming
 
-This fork adds receive-side latency controls and a live latency readout. The
-changes are layered so each one can be disabled independently.
+This fork adds receive-side latency controls, immediate input packets and a live
+latency readout. Every change is committed separately and can be reverted.
 
 ## What was added
 
 | Change | Where | Default |
 | --- | --- | --- |
-| Immediate input packets (no 16 ms batch wait) | `renderer/lib/latency/inputflush.ts` | On |
-| Configurable video jitter buffer target (`RTCRtpReceiver.jitterBufferTarget`, ms) | `renderer/lib/latency/controller.ts` | `0` (ultra low) |
-| Direct LAN ICE mode (skip STUN) | same | Off |
-| Live latency panel (RTT, jitter buffer, jitter, decode, processing, path, loss) | `renderer/components/ui/streamcomponent.tsx` | Always collected |
-| Background throttling disabled (input/render timers keep full rate when unfocused) | `main/helpers/create-window.ts`, `main/application.ts` | On |
-| VA-API hardware decode flags on Linux | `main/application.ts` | On (Linux only) |
+| Immediate input packets (skip the 16 ms batch) | `renderer/lib/latency/inputflush.ts` | On |
+| Extra video jitter-buffer margin | `renderer/lib/latency/controller.ts` | Browser default (`-1`) |
+| Direct LAN ICE mode (skip STUN) for console streaming | same | Off |
+| Live latency panel (RTT, buffer, jitter, decode, path, stalls, loss) | `renderer/components/ui/streamcomponent.tsx` | Collected only while the debug panel is open |
+| Background throttling disabled | `main/helpers/create-window.ts`, `main/application.ts` | On |
+| VA-API hardware decode flags on Linux | `main/application.ts` | On (Linux only, opt-out by passing your own `--enable-features`) |
 
-Settings live in **Settings → Streaming → Latency**:
+Settings live in **Settings → Streaming → Latency**.
 
-- **Video jitter buffer**: `0 ms` (ultra low), `30 ms`, `100 ms`, or browser
-  default. Chromium clamps the value to a safe minimum. If the stream stutters
-  on Wi-Fi, try `30` or `100`.
-- **Send input immediately**: flushes mouse, keyboard and gamepad packets as
-  soon as they are produced instead of waiting up to 16 ms for the player's
-  input loop. Mouse/keyboard input also requires keyboard & mouse mode.
-- **Prefer direct LAN (disable STUN)**: only gathers local ICE candidates.
-  Use it when the PC and console are on the same network. Internet remote play
-  will not connect with it enabled.
+## What each option actually does
 
-## Reading the latency panel
+### Immediate input
 
-Open the stream debug panel (bug button in the gamebar, or `~`). The new
-**Stream latency** grid shows:
+The player's input channel batches everything into a packet every 16 ms. This
+fork drains the queues and sends as soon as a frame is produced (gamepad frames
+via a `queueGamepadState` wrapper; native mouse/keyboard frames directly),
+throttled to 6 ms.
+
+- Saving: **~8 ms average, ~15 ms p95** for mouse/keyboard and KBM gamepad
+  emulation, because those frames are produced outside the interval.
+- The legacy gamepad-only path creates its frame *inside* the interval, so the
+  saving there is near zero.
+- Rate: at most ~166 packets/s (vs ~60), about 10–30 kB/s extra — under 2 % of a
+  20 Mbps stream.
+- The "Send input immediately" checkbox sets `channel.__latencyImmediate`;
+  turning it off restores the original 16 ms behaviour.
+
+### Extra video jitter buffer
+
+`RTCRtpReceiver.jitterBufferTarget` maps to Chromium's **minimum** playout
+delay. `0` is already the browser default, so selecting it does **not** lower
+latency. Values above 0 deliberately add safety margin for noisy Wi-Fi. The
+setting defaults to the browser default (`-1`, no API call). It cannot go below
+the jitter estimator's floor.
+
+### Direct LAN
+
+The player hardcodes two Google STUN servers. On a healthy LAN the host↔host
+candidate pair wins anyway, so this is not a steady-state RTT win. It removes
+STUN gather attempts/timeouts (visible in logs as `stun_port.cc Binding request
+timed out`) and prevents a hairpin-NAT path from being selected. It is applied
+only to console (`home`) streams; xCloud ignores it. Do not enable it for
+internet remote play.
+
+### Latency panel
+
+Open the stream debug panel with the bug button. The panel only calls
+`getStats()` while it is visible, so it no longer adds work during normal play
+(the pre-existing 33 ms stats/uPlot loop is gated the same way).
 
 | Row | Meaning | Healthy |
 | --- | --- | --- |
@@ -39,42 +65,59 @@ Open the stream debug panel (bug button in the gamebar, or `~`). The new
 | Decode | Average video decode time | < 8 ms (hardware) |
 | Processing | Frame assembly/processing delay | < 15 ms |
 | Path | `LAN`/`Remote`, candidate type, address | `LAN host` |
-| Loss | Dropped frames, lost packets, NACK/PLI | all zero |
+| Stalls | Freezes / pauses reported by WebRTC | 0 |
+| Loss | Dropped frames, lost packets, NACK/PLI | 0 |
 
 If **Path** says `Remote` while the console is on your LAN, the media is going
-through the router's public address (hairpin NAT) or a relay. That is the
-single biggest avoidable RTT; fix the network/topology before tuning anything
-else.
+through the router's public address (hairpin NAT) or a relay. Fix the network
+before tuning anything else.
 
-## Expected gains
+## Verify hardware decode
 
-- Immediate input flush: 1–16 ms (average ~8 ms).
-- Jitter buffer target: 10–60 ms depending on the previous buffer size.
-- Hardware decode, if the GPU was falling back to software: 5–15 ms.
-- Background throttling fix: prevents 1 Hz timer throttling when the window is
-  unfocused (a much larger stall than any tuning).
-- Direct LAN: removes STUN gather/relay paths, typically 0–30 ms.
+```bash
+# In the running app: open the DevTools console and run
+navigator.mediaCapabilities.decodingInfo({
+  type: 'file', video: { contentType: 'video/mp4; codecs="avc1.42E01E"',
+  width: 1920, height: 1080, bitrate: 8000000, framerate: 60 }
+}).then(console.log)
+# while streaming, chrome://media-internals should show VaapiVideoDecoder
+```
 
-These are independent of the console/network. Wire both ends if possible; no
-client change can beat Wi-Fi jitter and bufferbloat.
+If the GPU process crashes or video goes black after the VA-API flags, remove
+them (see rollback) or launch with your own `--enable-features` value, which
+takes precedence.
 
-## Running the tests
+## Expected total effect
+
+On a clean wired LAN: immediate input removes ~8 ms of client-side delay; the
+debug-panel gating removes periodic main-thread jank; hardware decode (if it was
+software before) removes ~5–15 ms. Network jitter and Wi-Fi remain the dominant
+factors and are not fixable in the client.
+
+## Tests
 
 ```bash
 cd packages/desktop
 node scripts/test-kbm.mjs
 node scripts/test-latency.mjs
+# or both:
+npm test
 ```
+
+The latency suite covers stats parsing, candidate-pair selection, private/LAN
+detection, throttle timing, failure/restore, handshake ordering, the
+install/uninstall wrapper, jitter-target units and Direct LAN restore.
 
 ## Rolling back
 
-Everything is committed on the `feat/low-latency` branch.
+Everything is committed on `feat/low-latency`; nothing was pushed.
 
 ```bash
-git log --oneline                     # see the commits
-git checkout kbm-baseline             # keyboard & mouse only, before latency work
-git checkout main-v2                  # pristine upstream branch
-git checkout feat/low-latency         # come back
+git log --oneline
+git checkout latency-v1     # latency work only
+git checkout kbm-baseline   # keyboard & mouse, before latency
+git checkout main-v2        # pristine upstream
+git checkout feat/low-latency
 ```
 
-Tags and commits are local; nothing was pushed.
+You can also revert only the latest fixes with `git revert <commit>`.

@@ -175,8 +175,8 @@ try {
     flushDriver._nativeSupported = true
     flushDriver._pushMouseFrame({ X: 1, Y: 0, WheelX: 0, WheelY: 0, Buttons: 0, Relative: 0 })
 
-    check('native mouse frame queues a gamepad heartbeat', flushChannel._gamepadFrames.length === 1)
     check('native mouse frame is queued', flushChannel._mouseFrames.length === 1)
+    check('native mouse frame does not inject a gamepad frame', flushChannel._gamepadFrames.length === 0)
 
     console.log('keyboard state')
     check('pressButton pulses a shadow button', (() => {

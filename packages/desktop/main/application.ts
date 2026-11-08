@@ -60,12 +60,14 @@ export default class Application {
         // not focused; otherwise input and video callbacks drop to 1 Hz.
         ElectronApp.commandLine.appendSwitch('disable-renderer-backgrounding')
         ElectronApp.commandLine.appendSwitch('disable-background-timer-throttling')
+        ElectronApp.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 
-        if (process.platform === 'linux') {
+        if (process.platform === 'linux' && ElectronApp.commandLine.getSwitchValue('enable-features') === '') {
             // Use VA-API for hardware video decode (AMD/Intel). Software decode
-            // adds several milliseconds per frame and can drop frames.
-            ElectronApp.commandLine.appendSwitch('enable-features', 'VaapiVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiIgnoreDriverChecks')
-            ElectronApp.commandLine.appendSwitch('disable-features', 'UseChromeOSDirectVideoDecoder')
+            // adds several milliseconds per frame and can drop frames. Do not
+            // force it past the driver blocklist; users with unsupported
+            // drivers can pass their own --enable-features flag.
+            ElectronApp.commandLine.appendSwitch('enable-features', 'VaapiVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL')
         }
 
         this.readStartupFlags()
