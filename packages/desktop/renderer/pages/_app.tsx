@@ -35,6 +35,7 @@ export default function MyApp({ Component, pageProps }) {
     // const [headerLinks, setHeaderLinks] = React.useState([])
     // const [streamingMode, setStreamingMode] = React.useState(false)
     const [isLoading, setIsLoading] = React.useState(false)
+    const [pairing, setPairing] = React.useState({ userCode: '', verificationUri: '' })
 
     React.useEffect(() => {
         Ipc.send('app', 'loadCachedUser').then((user) => {
@@ -54,6 +55,10 @@ export default function MyApp({ Component, pageProps }) {
 
                 if(args.isAuthenticating === true){
                     setIsLoading(true)
+                    setPairing({
+                        userCode: args.userCode || '',
+                        verificationUri: args.verificationUri || '',
+                    })
                     setPrevUserState({ ...prevUserState, ...args.user})
 
                 } else if(args.isAuthenticated === true && args.user.signedIn === true){
@@ -78,6 +83,10 @@ export default function MyApp({ Component, pageProps }) {
 
                     setLoginState(true)
                     setPrevUserState({ ...prevUserState, ...args.user})
+                } else {
+                    // Auth flow ended without a session (expired code, cancel): show the login card again.
+                    setIsLoading(false)
+                    setPairing({ userCode: '', verificationUri: '' })
                 }
             })
         }, 500)
@@ -128,7 +137,7 @@ export default function MyApp({ Component, pageProps }) {
     } else {
         appBody = (
             <React.Fragment>
-                <Auth signedIn={ prevUserState.signedIn} gamertag={ prevUserState.gamertag } gamerpic={ prevUserState.gamerpic } gamerscore={ prevUserState.gamerscore } isLoading={ isLoading } />
+                <Auth signedIn={ prevUserState.signedIn} gamertag={ prevUserState.gamertag } gamerpic={ prevUserState.gamerpic } gamerscore={ prevUserState.gamerscore } isLoading={ isLoading } userCode={ pairing.userCode } verificationUri={ pairing.verificationUri } />
             </React.Fragment>)
     }
 

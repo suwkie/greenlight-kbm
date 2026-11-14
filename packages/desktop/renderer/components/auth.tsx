@@ -14,6 +14,8 @@ interface AuthProps {
   gamerpic?: string;
   gamerscore?: string;
   isLoading?: boolean;
+  userCode?: string;
+  verificationUri?: string;
 }
 
 function Auth({
@@ -22,6 +24,8 @@ function Auth({
     gamerpic,
     gamerscore,
     isLoading = false,
+    userCode = '',
+    verificationUri = '',
 }: AuthProps) {
     const { t } = useTranslation()
 
@@ -46,7 +50,22 @@ function Auth({
             <div id="component_auth">
 
                 <div id="component_auth_modal">
-                    { isLoading === false ?
+                    { isLoading === true && userCode !== '' ?
+                        <Card>
+                            <div style={{ textAlign: 'center', paddingBottom: '20px' }}>
+                                {/* Plain English on purpose: pairing happens before settings/i18n is loaded. */}
+                                <h1>Enter this code to sign in</h1>
+                                <p>Open the link below and enter the code shown here.</p>
+                                <p style={{ fontFamily: 'monospace', fontSize: '32px', letterSpacing: '6px', userSelect: 'text' }}>
+                                    { userCode }
+                                </p>
+                                <p style={{ userSelect: 'text' }}>{ verificationUri }</p>
+                                <Button label='Open link' className='btn-primary' onClick={ () => {
+                                    (window as any).Greenlight.openExternal(verificationUri)
+                                } }></Button>
+                            </div>
+                        </Card>
+                    : isLoading === false ?
                         <Card>
                             {signedIn === true ? (<div className="component_auth_profile_container">
                                 <div className="component_auth_profile_gamerpic">

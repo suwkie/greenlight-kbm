@@ -41,6 +41,8 @@ export default class IpcApp extends IpcBase {
             resolve({
                 isAuthenticating: this._application._authentication._isAuthenticating,
                 isAuthenticated: this._application._authentication._isAuthenticated,
+                userCode: this._application._authentication._deviceCode,
+                verificationUri: this._application._authentication._verificationUri,
                 user: this.getUserState(),
             })
         })

@@ -17,6 +17,8 @@ export default class Authentication {
 
     _isAuthenticating:boolean = false
     _isAuthenticated:boolean = false
+    _deviceCode:string = ''
+    _verificationUri:string = ''
     _appLevel:number = 0
 
     private t = i18n.t.bind(i18n);
@@ -122,15 +124,18 @@ export default class Authentication {
         this._msal.doDeviceCodeAuth().then((data) => {
             this._application.log('authenticationV2', '[startAuthflow()] Starting devicecode auth:', data)
 
-            dialog.showMessageBox({
-                message: data.message+' Click OK to continue after entering code.',
-                type: 'info',
-            })
+            // The pairing code is shown in the app window (see Auth component): a parentless
+            // dialog gets lost behind other windows and leaves the user with no way to pair.
+            this._deviceCode = data.user_code
+            this._verificationUri = data.verification_uri
 
             this._isAuthenticating = true
 
             this._msal.doPollForDeviceCodeAuth(data.device_code).then((token) => {
                 this._application.log('authenticationV2', '[startAuthflow()] Devicecode authentication successful:', token)
+
+                this._deviceCode = ''
+                this._verificationUri = ''
 
                 this.getTokens()
 
@@ -139,6 +144,8 @@ export default class Authentication {
                 dialog.showErrorBox('Error', 'Failed to perform MSAL authentixation: ' + JSON.stringify(error))
 
                 this._isAuthenticating = false
+                this._deviceCode = ''
+                this._verificationUri = ''
             })
 
         }).catch((error) => {
